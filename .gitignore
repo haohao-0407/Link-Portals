@@ -37,6 +37,7 @@ CLAUDE.md
 ###wiki###
 Documentation-main/
 ### Minecraft Modding ###
+net/
 run/
 !**/src/**/run/
 **/src/generated/**/.cache/
