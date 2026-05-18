@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "link_portals:block/portal_core" }
+  }
+}

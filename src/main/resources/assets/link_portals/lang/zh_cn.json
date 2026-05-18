@@ -1,0 +1,16 @@
+{
+  "block.link_portals.portal_frame": "传送门框架",
+  "block.link_portals.portal_core": "传送门核心",
+  "item.link_portals.portal_activator": "传送门激活器",
+  "screen.link_portals.portal_destination": "选择目的地",
+
+  "item.link_portals.ice_ether": "Ice Ether",
+
+  "link_portals.configuration.title": "Link Portals Configs",
+  "link_portals.configuration.section.link_portals.common.toml": "Link Portals Configs",
+  "link_portals.configuration.section.link_portals.common.toml.title": "Link Portals Configs",
+  "link_portals.configuration.items": "Item List",
+  "link_portals.configuration.logDirtBlock": "Log Dirt Block",
+  "link_portals.configuration.magicNumberIntroduction": "Magic Number Text",
+  "link_portals.configuration.magicNumber": "Magic Number"
+}
