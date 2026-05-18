@@ -1,0 +1,16 @@
+{
+  "block.betterportals.portal_frame": "传送门框架",
+  "block.betterportals.portal_core": "传送门核心",
+  "item.betterportals.portal_activator": "传送门激活器",
+  "screen.betterportals.portal_destination": "选择目的地",
+
+  "item.betterportals.ice_ether": "Ice Ether",
+
+  "betterportals.configuration.title": "Better Portals Configs",
+  "betterportals.configuration.section.betterportals.common.toml": "Better Portals Configs",
+  "betterportals.configuration.section.betterportals.common.toml.title": "Better Portals Configs",
+  "betterportals.configuration.items": "Item List",
+  "betterportals.configuration.logDirtBlock": "Log Dirt Block",
+  "betterportals.configuration.magicNumberIntroduction": "Magic Number Text",
+  "betterportals.configuration.magicNumber": "Magic Number"
+}
