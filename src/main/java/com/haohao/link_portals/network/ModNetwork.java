@@ -42,14 +42,12 @@ public class ModNetwork {
 
         registrar.playToClient(
                 OpenNamingScreenPayload.TYPE,
-                OpenNamingScreenPayload.STREAM_CODEC,
-                ClientPayloadHandler::handleOpenNaming
+                OpenNamingScreenPayload.STREAM_CODEC
         );
 
         registrar.playToClient(
                 OpenPortalScreenPayload.TYPE,
-                OpenPortalScreenPayload.STREAM_CODEC,
-                ClientPayloadHandler::handleOpenPortalScreen
+                OpenPortalScreenPayload.STREAM_CODEC
         );
     }
 
