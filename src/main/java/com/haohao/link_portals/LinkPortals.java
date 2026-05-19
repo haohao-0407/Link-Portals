@@ -2,6 +2,7 @@ package com.haohao.link_portals;
 
 import com.haohao.link_portals.block.ModBlocks;
 import com.haohao.link_portals.block.entity.ModBlockEntities;
+import com.haohao.link_portals.item.ModCreativeTabs;
 import com.haohao.link_portals.item.ModItems;
 import com.haohao.link_portals.network.ModNetwork;
 import org.slf4j.Logger;
@@ -9,7 +10,6 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -18,7 +18,6 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 
 @Mod(LinkPortals.MODID)
@@ -33,10 +32,8 @@ public class LinkPortals {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         modEventBus.register(ModNetwork.class);
-
-
-        modEventBus.addListener(this::addCreative);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
@@ -51,19 +48,6 @@ public class LinkPortals {
         LOGGER.info("{}{}", Config.MAGIC_NUMBER_INTRODUCTION.get(), Config.MAGIC_NUMBER.getAsInt());
 
         Config.ITEM_STRINGS.get().forEach((item) -> LOGGER.info("ITEM >> {}", item));
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            event.accept(ModItems.RAW_ICE_ETHER);
-            event.accept(ModItems.ICE_ETHER);
-            event.accept(ModItems.CARDBOARD);
-        }
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
-            event.accept(ModItems.PORTAL_FRAME);
-            event.accept(ModItems.PORTAL_CORE);
-            event.accept(ModItems.PORTAL_ACTIVATOR);
-        }
     }
 
     @SubscribeEvent

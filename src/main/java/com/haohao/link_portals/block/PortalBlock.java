@@ -5,11 +5,11 @@ import com.haohao.link_portals.world.PortalNetworkSavedData;
 import com.haohao.link_portals.world.PortalNetworkSavedData.PortalInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.InsideBlockEffectApplier;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -44,6 +44,22 @@ public class PortalBlock extends Block {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return SHAPES.get(state.getValue(AXIS));
+    }
+
+    @Override
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
+        PortalNetworkSavedData data = level.getServer().overworld()
+                .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
+        PortalInfo info = data.getPortalAtBlock(pos);
+        if (info != null) {
+            List<BlockPos> siblings = data.getPortalBlockPositions(info.id());
+            data.removePortal(info.id());
+            for (BlockPos sibling : siblings) {
+                if (!sibling.equals(pos) && level.getBlockState(sibling).is(this)) {
+                    level.removeBlock(sibling, false);
+                }
+            }
+        }
     }
 
     @Override

@@ -79,6 +79,25 @@ public class PortalNetworkSavedData extends SavedData {
                 .toList();
     }
 
+    public List<BlockPos> getPortalBlockPositions(UUID portalId) {
+        List<BlockPos> positions = new ArrayList<>();
+        for (Map.Entry<BlockPos, UUID> entry : portalBlockMap.entrySet()) {
+            if (entry.getValue().equals(portalId)) {
+                positions.add(entry.getKey());
+            }
+        }
+        return positions;
+    }
+
+    public PortalInfo getPortalByCorePos(BlockPos corePos) {
+        for (PortalInfo info : portalInfoMap.values()) {
+            if (info.corePos().equals(corePos)) {
+                return info;
+            }
+        }
+        return null;
+    }
+
     public BlockPos getSpawnPos(UUID portalId) {
         BlockPos lowest = null;
         for (Map.Entry<BlockPos, UUID> entry : portalBlockMap.entrySet()) {
