@@ -84,7 +84,7 @@ public class PortalBlock extends Block {
             List<OpenPortalScreenPayload.Destination> destinations = new ArrayList<>();
             for (PortalInfo info : networkPortals) {
                 destinations.add(new OpenPortalScreenPayload.Destination(
-                        info.id(), info.dimension(), info.corePos(), info.networkName()));
+                        info.id(), info.dimension(), info.spawnPos(), info.networkName(), info.portalName()));
             }
             PacketDistributor.sendToPlayer(player, new OpenPortalScreenPayload(
                     current.id(), current.networkName(), destinations));
@@ -99,7 +99,7 @@ public class PortalBlock extends Block {
         Direction.Axis axis = state.getValue(AXIS);
         boolean wrongAxis = axis != updateAxis && updateAxis.isHorizontal();
         return !wrongAxis && !neighbourState.is(this) && !neighbourState.is(ModBlocks.PORTAL_FRAME)
-                && !neighbourState.is(ModBlocks.PORTAL_CORE)
+                && !neighbourState.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN)
                 ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()
                 : state;
     }

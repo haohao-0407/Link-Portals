@@ -1,9 +1,11 @@
 {
   "block.link_portals.portal_frame": "联界门框架",
-  "block.link_portals.portal_core": "联界门核心",
   "item.link_portals.portal_activator": "联界门激活器",
   "screen.link_portals.portal_destination": "选择目的地",
-  "itemGroup.link_portals": "联界门 ",
+  "screen.link_portals.portal_naming": "命名传送门",
+  "screen.link_portals.network_name": "频道名称",
+  "screen.link_portals.portal_name": "传送门名称",
+  "itemGroup.link_portals": "联界门",
 
   "item.link_portals.ice_ether": "Ice Ether",
 

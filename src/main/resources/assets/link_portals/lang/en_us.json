@@ -1,12 +1,12 @@
 {
   "block.link_portals.portal_frame": "Portal Frame",
-  "block.link_portals.portal_core": "Portal Core",
   "item.link_portals.portal_activator": "Portal Activator",
   "screen.link_portals.portal_destination": "Choose Destination",
+  "screen.link_portals.portal_naming": "Name Portal Network",
+  "screen.link_portals.network_name": "Network Name",
+  "screen.link_portals.portal_name": "Portal Name",
 
   "itemGroup.link_portals": "Link Portals",
-  "block.link_portals.example_block": "Example Block",
-  "item.link_portals.example_item": "Example Item",
 
   "link_portals.configuration.title": "Link Portals Configs",
   "link_portals.configuration.section.link_portals.common.toml": "Link Portals Configs",

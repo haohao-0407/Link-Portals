@@ -20,8 +20,6 @@ public class ModItems {
 
     public static final DeferredItem<BlockItem> PORTAL_FRAME = ITEMS.registerItem("portal_frame",
             props -> new BlockItem(ModBlocks.PORTAL_FRAME.get(), props));
-    public static final DeferredItem<BlockItem> PORTAL_CORE = ITEMS.registerItem("portal_core",
-            props -> new BlockItem(ModBlocks.PORTAL_CORE.get(), props));
 
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);

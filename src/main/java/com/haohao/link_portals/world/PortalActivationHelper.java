@@ -14,40 +14,43 @@ public class PortalActivationHelper {
 
     public record FrameResult(Direction.Axis axis, BlockPos minCorner, int width, int height) {}
 
-    public static Optional<FrameResult> detectFrame(Level level, BlockPos corePos) {
-        // Try horizontal directions to find frame orientation
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
-            Optional<FrameResult> result = detectFrameAlong(level, corePos, dir);
-            if (result.isPresent()) return result;
+    public static Optional<FrameResult> detectFrame(Level level, BlockPos framePos, Direction clickedFace) {
+        for (Direction dir : Direction.values()) {
+            BlockPos candidate = framePos.relative(dir);
+            if (!isFrameBlock(level, candidate) && isEmpty(level, candidate)) {
+                Optional<FrameResult> result = tryDetectFromInterior(level, candidate);
+                if (result.isPresent()) return result;
+            }
         }
         return Optional.empty();
     }
 
-    private static Optional<FrameResult> detectFrameAlong(Level level, BlockPos corePos, Direction facing) {
-        // The portal interior faces along the facing direction
-        // Frame goes left-right (perpendicular to facing) and up-down
-        Direction right = facing.getClockWise();
+    private static Optional<FrameResult> tryDetectFromInterior(Level level, BlockPos interiorPos) {
+        Optional<FrameResult> result = detectFrameFromInterior(level, interiorPos, Direction.EAST);
+        if (result.isPresent()) return result;
+        result = detectFrameFromInterior(level, interiorPos, Direction.WEST);
+        if (result.isPresent()) return result;
+        result = detectFrameFromInterior(level, interiorPos, Direction.SOUTH);
+        if (result.isPresent()) return result;
+        return detectFrameFromInterior(level, interiorPos, Direction.NORTH);
+    }
 
-        // Find bottom-left corner by scanning from core
-        BlockPos bottomLeft = findBottomLeft(level, corePos, right);
+    private static boolean isEmpty(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.isAir() || state.canBeReplaced();
+    }
+
+    private static Optional<FrameResult> detectFrameFromInterior(Level level, BlockPos interiorPos, Direction right) {
+        BlockPos bottomLeft = findBottomLeft(level, interiorPos, right);
         if (bottomLeft == null) return Optional.empty();
 
-        // Measure width (along right direction) - count interior blocks
         int width = measureWidth(level, bottomLeft, right);
         if (width < 2 || width > 21) return Optional.empty();
 
-        // Measure height - count interior blocks
         int height = measureHeight(level, bottomLeft, right);
         if (height < 3 || height > 21) return Optional.empty();
 
-        // Validate frame: check borders are all valid frame blocks
         if (!validateFrame(level, bottomLeft, right, width, height)) return Optional.empty();
-
-        // Count core blocks
-        int coreCount = countCoreBlocks(level, bottomLeft, right, width, height);
-        if (coreCount != 1) return Optional.empty();
-
-        // Check interior is empty
         if (!validateInterior(level, bottomLeft, right, width, height)) return Optional.empty();
 
         Direction.Axis axis = right.getAxis();
@@ -58,18 +61,16 @@ public class PortalActivationHelper {
         Direction left = right.getOpposite();
         BlockPos pos = start;
         int limit = 21;
-        while (isFrameBlock(level, pos.below()) && limit-- > 0) {
+        while (!isFrameBlock(level, pos.below()) && limit-- > 0) {
             pos = pos.below();
         }
+        if (!isFrameBlock(level, pos.below())) return null;
         limit = 21;
-        while (isFrameBlock(level, pos.relative(left)) && limit-- > 0) {
+        while (!isFrameBlock(level, pos.relative(left)) && limit-- > 0) {
             pos = pos.relative(left);
         }
-        limit = 21;
-        while (isFrameBlock(level, pos.below()) && limit-- > 0) {
-            pos = pos.below();
-        }
-        return pos;
+        if (!isFrameBlock(level, pos.relative(left))) return null;
+        return pos.relative(left).below();
     }
 
     private static int measureWidth(Level level, BlockPos bottomLeft, Direction right) {
@@ -95,37 +96,21 @@ public class PortalActivationHelper {
     }
 
     private static boolean validateFrame(Level level, BlockPos bottomLeft, Direction right, int width, int height) {
-        // Bottom row
         for (int w = 0; w < width + 2; w++) {
             if (!isFrameBlock(level, bottomLeft.relative(right, w))) return false;
         }
-        // Top row
         BlockPos topLeft = bottomLeft.above(height + 1);
         for (int w = 0; w < width + 2; w++) {
             if (!isFrameBlock(level, topLeft.relative(right, w))) return false;
         }
-        // Left column
         for (int h = 1; h <= height; h++) {
             if (!isFrameBlock(level, bottomLeft.above(h))) return false;
         }
-        // Right column
         BlockPos bottomRight = bottomLeft.relative(right, width + 1);
         for (int h = 1; h <= height; h++) {
             if (!isFrameBlock(level, bottomRight.above(h))) return false;
         }
         return true;
-    }
-
-    private static int countCoreBlocks(Level level, BlockPos bottomLeft, Direction right, int width, int height) {
-        int count = 0;
-        for (int h = 0; h <= height + 1; h++) {
-            for (int w = 0; w <= width + 1; w++) {
-                if (h > 0 && h <= height && w > 0 && w <= width) continue; // skip interior
-                BlockPos pos = bottomLeft.relative(right, w).above(h);
-                if (level.getBlockState(pos).is(ModBlocks.PORTAL_CORE)) count++;
-            }
-        }
-        return count;
     }
 
     private static boolean validateInterior(Level level, BlockPos bottomLeft, Direction right, int width, int height) {
@@ -141,10 +126,10 @@ public class PortalActivationHelper {
 
     private static boolean isFrameBlock(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        return state.is(ModBlocks.PORTAL_FRAME) || state.is(ModBlocks.PORTAL_CORE);
+        return state.is(ModBlocks.PORTAL_FRAME) || state.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN);
     }
 
-    public static void fillPortal(ServerLevel level, FrameResult frame, UUID portalId) {
+    public static void fillPortal(ServerLevel level, FrameResult frame, UUID portalId, String networkName, String portalName) {
         Direction right = frame.axis() == Direction.Axis.X ? Direction.EAST : Direction.SOUTH;
         Set<BlockPos> portalPositions = new HashSet<>();
 
@@ -158,23 +143,8 @@ public class PortalActivationHelper {
             }
         }
 
-        // Register in saved data
         PortalNetworkSavedData data = level.getServer().overworld()
                 .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
-
-        // Get network name from core block entity
-        for (int h = 0; h <= frame.height() + 1; h++) {
-            for (int w = 0; w <= frame.width() + 1; w++) {
-                if (h > 0 && h <= frame.height() && w > 0 && w <= frame.width()) continue;
-                BlockPos pos = frame.minCorner().relative(right, w).above(h);
-                if (level.getBlockState(pos).is(ModBlocks.PORTAL_CORE)) {
-                    if (level.getBlockEntity(pos) instanceof com.haohao.link_portals.block.entity.PortalCoreBlockEntity be) {
-                        be.setPortalId(portalId);
-                        data.addPortal(portalId, level.dimension(), pos.immutable(), be.getNetworkName(), portalPositions);
-                        return;
-                    }
-                }
-            }
-        }
+        data.addPortal(portalId, level.dimension(), networkName, portalName, portalPositions);
     }
 }

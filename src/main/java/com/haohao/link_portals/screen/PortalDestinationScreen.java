@@ -34,7 +34,12 @@ public class PortalDestinationScreen extends Screen {
         for (int i = 0; i < destinations.size(); i++) {
             OpenPortalScreenPayload.Destination dest = destinations.get(i);
             String dimName = dest.dimension().identifier().getPath();
-            String label = "[" + dimName + "] " + dest.corePos().toShortString();
+            String label;
+            if (dest.portalName() != null && !dest.portalName().isEmpty()) {
+                label = dest.portalName() + "  [" + dimName + "]";
+            } else {
+                label = "[" + dimName + "] " + dest.spawnPos().toShortString();
+            }
             int y = startY + i * (buttonHeight + spacing);
 
             Button button = Button.builder(Component.literal(label), b -> {

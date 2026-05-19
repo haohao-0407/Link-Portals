@@ -52,8 +52,11 @@ public class PortalNetworkSavedData extends SavedData {
         });
     }
 
-    public void addPortal(UUID portalId, ResourceKey<Level> dimension, BlockPos corePos, String networkName, Set<BlockPos> portalBlockPositions) {
-        portalInfoMap.put(portalId, new PortalInfo(portalId, dimension, corePos, networkName));
+    public void addPortal(UUID portalId, ResourceKey<Level> dimension, String networkName, String portalName, Set<BlockPos> portalBlockPositions) {
+        BlockPos spawnPos = portalBlockPositions.stream()
+                .min((a, b) -> Integer.compare(a.getY(), b.getY()))
+                .orElseThrow();
+        portalInfoMap.put(portalId, new PortalInfo(portalId, dimension, spawnPos, networkName, portalName));
         portalBlockPositions.forEach(pos -> portalBlockMap.put(pos, portalId));
         setDirty();
     }
@@ -89,34 +92,18 @@ public class PortalNetworkSavedData extends SavedData {
         return positions;
     }
 
-    public PortalInfo getPortalByCorePos(BlockPos corePos) {
-        for (PortalInfo info : portalInfoMap.values()) {
-            if (info.corePos().equals(corePos)) {
-                return info;
-            }
-        }
-        return null;
-    }
-
     public BlockPos getSpawnPos(UUID portalId) {
-        BlockPos lowest = null;
-        for (Map.Entry<BlockPos, UUID> entry : portalBlockMap.entrySet()) {
-            if (entry.getValue().equals(portalId)) {
-                BlockPos pos = entry.getKey();
-                if (lowest == null || pos.getY() < lowest.getY()) {
-                    lowest = pos;
-                }
-            }
-        }
-        return lowest;
+        PortalInfo info = portalInfoMap.get(portalId);
+        return info != null ? info.spawnPos() : null;
     }
 
-    public record PortalInfo(UUID id, ResourceKey<Level> dimension, BlockPos corePos, String networkName) {
+    public record PortalInfo(UUID id, ResourceKey<Level> dimension, BlockPos spawnPos, String networkName, String portalName) {
         public static final Codec<PortalInfo> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.STRING.xmap(UUID::fromString, UUID::toString).fieldOf("id").forGetter(PortalInfo::id),
                 Level.RESOURCE_KEY_CODEC.fieldOf("dimension").forGetter(PortalInfo::dimension),
-                BlockPos.CODEC.fieldOf("corePos").forGetter(PortalInfo::corePos),
-                Codec.STRING.fieldOf("networkName").forGetter(PortalInfo::networkName)
+                BlockPos.CODEC.fieldOf("spawnPos").forGetter(PortalInfo::spawnPos),
+                Codec.STRING.fieldOf("networkName").forGetter(PortalInfo::networkName),
+                Codec.STRING.optionalFieldOf("portalName", "").forGetter(PortalInfo::portalName)
         ).apply(i, PortalInfo::new));
     }
 }

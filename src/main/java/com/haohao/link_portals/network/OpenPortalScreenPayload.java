@@ -36,7 +36,7 @@ public record OpenPortalScreenPayload(UUID portalId, String networkName, List<De
         return TYPE;
     }
 
-    public record Destination(UUID portalId, ResourceKey<Level> dimension, BlockPos corePos, String networkName) {
+    public record Destination(UUID portalId, ResourceKey<Level> dimension, BlockPos spawnPos, String networkName, String portalName) {
         public static final StreamCodec<RegistryFriendlyByteBuf, Destination> STREAM_CODEC =
                 StreamCodec.composite(
                         UUIDUtil.STREAM_CODEC,
@@ -44,9 +44,11 @@ public record OpenPortalScreenPayload(UUID portalId, String networkName, List<De
                         ResourceKey.streamCodec(net.minecraft.core.registries.Registries.DIMENSION),
                         Destination::dimension,
                         BlockPos.STREAM_CODEC,
-                        Destination::corePos,
+                        Destination::spawnPos,
                         ByteBufCodecs.STRING_UTF8,
                         Destination::networkName,
+                        ByteBufCodecs.STRING_UTF8,
+                        Destination::portalName,
                         Destination::new
                 );
     }
