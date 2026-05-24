@@ -3,7 +3,7 @@
   "item.link_portals.portal_activator": "Portal Activator",
   "screen.link_portals.portal_destination": "Choose Destination",
   "screen.link_portals.portal_naming": "Name Portal Network",
-  "screen.link_portals.network_name": "Network Name",
+  "screen.link_portals.network_name": "Network Name, 'default' if empty",
   "screen.link_portals.portal_name": "Portal Name",
 
   "itemGroup.link_portals": "Link Portals",

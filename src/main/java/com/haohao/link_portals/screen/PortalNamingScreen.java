@@ -35,7 +35,7 @@ public class PortalNamingScreen extends Screen {
         this.networkNameField = new EditBox(this.font, centerX - 100, startY + 30, 200, 20,
                 Component.translatable("screen.link_portals.network_name"));
         this.networkNameField.setMaxLength(64);
-        this.networkNameField.setValue("default");
+        //this.networkNameField.setValue("default");
         this.networkNameField.setHint(Component.translatable("screen.link_portals.network_name"));
         this.addRenderableWidget(this.networkNameField);
 
@@ -63,5 +63,6 @@ public class PortalNamingScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         graphics.text(this.font, this.title, this.width / 2 - this.font.width(this.title) / 2, this.height / 2 - 70, 0xFFFFFF);
+
     }
 }
