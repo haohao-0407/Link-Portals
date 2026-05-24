@@ -1,5 +1,6 @@
 {
   "parent": "minecraft:block/nether_portal_ns",
+  "render_type": "minecraft:translucent",
   "textures": {
     "particle": "link_portals:block/portal",
     "portal": "link_portals:block/portal"
