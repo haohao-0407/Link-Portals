@@ -98,10 +98,18 @@ public class PortalBlock extends Block {
         Direction.Axis updateAxis = directionToNeighbour.getAxis();
         Direction.Axis axis = state.getValue(AXIS);
         boolean wrongAxis = axis != updateAxis && updateAxis.isHorizontal();
-        return !wrongAxis && !neighbourState.is(this) && !neighbourState.is(ModBlocks.PORTAL_FRAME)
-                && !neighbourState.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN)
-                ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()
-                : state;
+        if (wrongAxis || neighbourState.is(this) || neighbourState.is(ModBlocks.PORTAL_FRAME)
+                || neighbourState.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN)) {
+            return state;
+        }
+        if (level instanceof ServerLevel serverLevel) {
+            PortalNetworkSavedData data = serverLevel.getServer().overworld()
+                    .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
+            if (data.getPortalAtBlock(pos) != null) {
+                return state;
+            }
+        }
+        return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
     }
 
     @Override
