@@ -19,9 +19,6 @@ public class ModCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.PORTAL_FRAME.get());
                         output.accept(ModItems.PORTAL_ACTIVATOR.get());
-                        output.accept(ModItems.RAW_ICE_ETHER.get());
-                        output.accept(ModItems.ICE_ETHER.get());
-                        output.accept(ModItems.CARDBOARD.get());
                     })
                     .build());
 }

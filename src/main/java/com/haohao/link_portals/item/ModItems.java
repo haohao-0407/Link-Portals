@@ -11,9 +11,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(LinkPortals.MODID);
 
-    public static final DeferredItem<Item> ICE_ETHER = ITEMS.registerSimpleItem("ice_ether");
-    public static final DeferredItem<Item> RAW_ICE_ETHER = ITEMS.registerSimpleItem("raw_ice_ether");
-    public static final DeferredItem<Item> CARDBOARD = ITEMS.registerSimpleItem("material/cardboard");
+
 
     public static final DeferredItem<PortalActivatorItem> PORTAL_ACTIVATOR = ITEMS.registerItem("portal_activator",
             props -> new PortalActivatorItem(props.stacksTo(1)));
