@@ -15,7 +15,7 @@ public class ModCreativeTabs {
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> LINK_PORTALS_TAB =
             CREATIVE_MODE_TABS.register("link_portals_tab", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.link_portals"))
-                    .icon(() -> new ItemStack(ModItems.PORTAL_FRAME.get()))
+                    .icon(() -> new ItemStack(ModItems.PORTAL_ACTIVATOR.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.PORTAL_FRAME.get());
                         output.accept(ModItems.PORTAL_ACTIVATOR.get());
