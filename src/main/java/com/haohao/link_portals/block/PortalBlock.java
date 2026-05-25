@@ -1,5 +1,6 @@
 package com.haohao.link_portals.block;
 
+import com.haohao.link_portals.network.ModNetwork;
 import com.haohao.link_portals.network.OpenPortalScreenPayload;
 import com.haohao.link_portals.world.PortalNetworkSavedData;
 import com.haohao.link_portals.world.PortalNetworkSavedData.PortalInfo;
@@ -64,23 +65,31 @@ public class PortalBlock extends Block {
 
     @Override
     protected void entityInside(BlockState state, Level level, BlockPos pos, Entity entity, InsideBlockEffectApplier effectApplier, boolean isPrecise) {
-        if (!level.isClientSide() && entity instanceof ServerPlayer player) {
-            if (player.getPersistentData().contains("link_portals_cooldown")) {
-                long cooldown = player.getPersistentData().getLong("link_portals_cooldown").orElse(0L);
-                if (level.getGameTime() < cooldown) return;
-            }
+        if (level.isClientSide()) return;
+        if (entity.getVehicle() != null) return;
 
-            PortalNetworkSavedData data = level.getServer().overworld()
-                    .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
-            PortalInfo current = data.getPortalAtBlock(pos);
-            if (current == null) return;
+        if (entity.getPersistentData().contains("link_portals_cooldown")) {
+            long cooldown = entity.getPersistentData().getLong("link_portals_cooldown").orElse(0L);
+            if (level.getGameTime() < cooldown) return;
+        }
 
-            List<PortalInfo> networkPortals = data.getNetworkPortals(current.networkName(), current.id());
-            if (networkPortals.isEmpty()) return;
+        PortalNetworkSavedData data = level.getServer().overworld()
+                .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
+        PortalInfo current = data.getPortalAtBlock(pos);
+        if (current == null) return;
 
-            // Set cooldown
-            player.getPersistentData().putLong("link_portals_cooldown", level.getGameTime() + COOLDOWN_TICKS);
+        List<PortalInfo> networkPortals = data.getNetworkPortals(current.networkName(), current.id());
+        if (networkPortals.isEmpty()) return;
 
+        entity.getPersistentData().putLong("link_portals_cooldown", level.getGameTime() + COOLDOWN_TICKS);
+        for (Entity passenger : entity.getPassengers()) {
+            passenger.getPersistentData().putLong("link_portals_cooldown", level.getGameTime() + COOLDOWN_TICKS);
+        }
+
+        if (networkPortals.size() == 1) {
+            Direction.Axis sourceAxis = state.getValue(AXIS);
+            ModNetwork.teleportEntity(entity, (ServerLevel) level, current.id(), networkPortals.getFirst().id(), sourceAxis);
+        } else if (entity instanceof ServerPlayer player) {
             List<OpenPortalScreenPayload.Destination> destinations = new ArrayList<>();
             for (PortalInfo info : networkPortals) {
                 destinations.add(new OpenPortalScreenPayload.Destination(

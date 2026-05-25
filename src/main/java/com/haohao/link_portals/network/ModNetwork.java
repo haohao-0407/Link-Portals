@@ -14,6 +14,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
+import java.util.List;
 import java.util.UUID;
 
 public class ModNetwork {
@@ -94,7 +95,7 @@ public class ModNetwork {
         return true;
     }
 
-    static void handleDestinationChoice(ServerPlayer player, ChooseDestinationPayload payload) {
+    public static void handleDestinationChoice(ServerPlayer player, ChooseDestinationPayload payload) {
         ServerLevel currentLevel = (ServerLevel) player.level();
         PortalNetworkSavedData data = currentLevel.getServer().overworld()
                 .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
@@ -119,5 +120,126 @@ public class ModNetwork {
             );
             player.teleport(transition);
         }
+    }
+
+    public static void teleportEntity(net.minecraft.world.entity.Entity entity, ServerLevel currentLevel,
+                                       UUID sourcePortalId, UUID targetPortalId,
+                                       net.minecraft.core.Direction.Axis sourceAxis) {
+        PortalNetworkSavedData data = currentLevel.getServer().overworld()
+                .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
+
+        PortalInfo target = data.getPortalInfo(targetPortalId);
+        if (target == null) return;
+
+        ServerLevel targetLevel = currentLevel.getServer().getLevel(target.dimension());
+        if (targetLevel == null) return;
+
+        List<BlockPos> sourceBlocks = data.getPortalBlockPositions(sourcePortalId);
+        List<BlockPos> destBlocks = data.getPortalBlockPositions(targetPortalId);
+        if (sourceBlocks.isEmpty() || destBlocks.isEmpty()) return;
+
+        net.minecraft.core.Direction.Axis destAxis = getPortalAxis(targetLevel, target.spawnPos());
+
+        int[] srcBounds = getPortalBounds(sourceBlocks, sourceAxis);
+        int[] dstBounds = getPortalBounds(destBlocks, destAxis);
+
+        Vec3 entityPos = entity.position();
+        double srcH = getHorizontalCoord(entityPos, sourceAxis) - srcBounds[0];
+        double srcV = entityPos.y - srcBounds[2];
+        double srcWidth = srcBounds[1] - srcBounds[0] + 1.0;
+        double srcHeight = srcBounds[3] - srcBounds[2] + 1.0;
+
+        double ratioH = Math.clamp(srcH / srcWidth, 0.0, 1.0);
+        double ratioV = Math.clamp(srcV / srcHeight, 0.0, 1.0);
+
+        double dstWidth = dstBounds[1] - dstBounds[0] + 1.0;
+        double dstHeight = dstBounds[3] - dstBounds[2] + 1.0;
+        double destH = dstBounds[0] + ratioH * dstWidth;
+        double destV = dstBounds[2] + ratioV * dstHeight;
+
+        Vec3 targetVec = buildTargetVec(destH, destV, destAxis, destBlocks);
+
+        Vec3 momentum = entity.getDeltaMovement();
+        float yRot = entity.getYRot();
+        if (sourceAxis != destAxis) {
+            momentum = new Vec3(-momentum.z, momentum.y, momentum.x);
+            yRot += 90.0f;
+        }
+
+        TeleportTransition transition = new TeleportTransition(
+                targetLevel, targetVec, momentum, yRot, entity.getXRot(),
+                java.util.Set.of(),
+                TeleportTransition.DO_NOTHING
+        );
+
+        List<net.minecraft.world.entity.Entity> passengers = new java.util.ArrayList<>(entity.getPassengers());
+        for (net.minecraft.world.entity.Entity passenger : passengers) {
+            passenger.stopRiding();
+        }
+
+        entity.teleport(transition);
+        entity.setDeltaMovement(momentum);
+
+        for (net.minecraft.world.entity.Entity passenger : passengers) {
+            TeleportTransition passengerTransition = new TeleportTransition(
+                    targetLevel, targetVec, momentum, passenger.getYRot() + (sourceAxis != destAxis ? 90.0f : 0.0f),
+                    passenger.getXRot(),
+                    java.util.Set.of(),
+                    TeleportTransition.DO_NOTHING
+            );
+            passenger.teleport(passengerTransition);
+            passenger.startRiding(entity);
+            passenger.setDeltaMovement(momentum);
+            if (passenger instanceof ServerPlayer sp) {
+                sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(sp));
+            }
+        }
+
+        if (entity instanceof ServerPlayer sp) {
+            sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(sp));
+        }
+    }
+
+    private static double getHorizontalCoord(Vec3 pos, net.minecraft.core.Direction.Axis axis) {
+        return axis == net.minecraft.core.Direction.Axis.X ? pos.x : pos.z;
+    }
+
+    private static Vec3 buildTargetVec(double h, double v, net.minecraft.core.Direction.Axis axis,
+                                         List<BlockPos> destBlocks) {
+        if (axis == net.minecraft.core.Direction.Axis.X) {
+            int fixedZ = destBlocks.getFirst().getZ();
+            return new Vec3(h, v, fixedZ + 0.5);
+        } else {
+            int fixedX = destBlocks.getFirst().getX();
+            return new Vec3(fixedX + 0.5, v, h);
+        }
+    }
+
+    private static int[] getPortalBounds(List<BlockPos> blocks, net.minecraft.core.Direction.Axis axis) {
+        int minH = Integer.MAX_VALUE, maxH = Integer.MIN_VALUE;
+        int minV = Integer.MAX_VALUE, maxV = Integer.MIN_VALUE;
+        for (BlockPos bp : blocks) {
+            int h = axis == net.minecraft.core.Direction.Axis.X ? bp.getX() : bp.getZ();
+            int v = bp.getY();
+            if (h < minH) minH = h;
+            if (h > maxH) maxH = h;
+            if (v < minV) minV = v;
+            if (v > maxV) maxV = v;
+        }
+        return new int[]{minH, maxH, minV, maxV};
+    }
+
+    private static net.minecraft.core.Direction.Axis getPortalAxis(ServerLevel level, BlockPos pos) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (state.is(com.haohao.link_portals.block.ModBlocks.PORTAL)) {
+            return state.getValue(com.haohao.link_portals.block.PortalBlock.AXIS);
+        }
+        for (BlockPos neighbor : BlockPos.betweenClosed(pos.offset(-1, 0, -1), pos.offset(1, 2, 1))) {
+            state = level.getBlockState(neighbor);
+            if (state.is(com.haohao.link_portals.block.ModBlocks.PORTAL)) {
+                return state.getValue(com.haohao.link_portals.block.PortalBlock.AXIS);
+            }
+        }
+        return net.minecraft.core.Direction.Axis.X;
     }
 }
