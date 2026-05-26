@@ -143,7 +143,7 @@ public class ModNetwork {
         double destH = dstBounds[0] + ratioH * dstWidth;
         double destV = dstBounds[2] + ratioV * dstHeight;
 
-        boolean enteredFromFront = isEntityOnFrontSide(entityPos, sourceBlocks, sourceFacing, sourceAxis);
+        boolean enteredFromFront = isEntityOnFrontSide(entityPos, sourceBlocks, sourceFacing, sourceAxis, entity.getDeltaMovement());
         net.minecraft.core.Direction exitDirection = enteredFromFront ? destFacing : destFacing.getOpposite();
 
         Vec3 targetVec = buildTargetVecWithOffset(destH, destV, destAxis, destBlocks, exitDirection);
@@ -163,8 +163,26 @@ public class ModNetwork {
             passenger.stopRiding();
         }
 
-        entity.teleport(transition);
-        entity.setDeltaMovement(momentum);
+        net.minecraft.world.entity.Entity teleported = entity.teleport(transition);
+        if (teleported == null) teleported = entity;
+        teleported.setDeltaMovement(momentum);
+        teleported.setOldPosAndRot();
+        teleported.hurtMarked = true;
+
+        if (teleported instanceof net.minecraft.world.entity.vehicle.minecart.AbstractMinecart) {
+            final Vec3 railMomentum = alignMomentumToRail(targetLevel, teleported.blockPosition(), momentum, exitDirection);
+            teleported.setDeltaMovement(railMomentum);
+            final net.minecraft.world.entity.Entity mc = teleported;
+            final net.minecraft.server.MinecraftServer srv = targetLevel.getServer();
+            int baseTick = srv.getTickCount();
+            for (int delay = 1; delay <= 3; delay++) {
+                int targetTick = baseTick + delay;
+                srv.schedule(new net.minecraft.server.TickTask(targetTick, () -> {
+                    mc.setDeltaMovement(railMomentum);
+                    mc.hurtMarked = true;
+                }));
+            }
+        }
 
         for (net.minecraft.world.entity.Entity passenger : passengers) {
             TeleportTransition passengerTransition = new TeleportTransition(
@@ -173,22 +191,35 @@ public class ModNetwork {
                     java.util.Set.of(),
                     TeleportTransition.DO_NOTHING
             );
-            passenger.teleport(passengerTransition);
-            passenger.startRiding(entity);
-            passenger.setDeltaMovement(momentum);
-            if (passenger instanceof ServerPlayer sp) {
+            net.minecraft.world.entity.Entity teleportedPassenger = passenger.teleport(passengerTransition);
+            if (teleportedPassenger == null) teleportedPassenger = passenger;
+            teleportedPassenger.startRiding(teleported);
+            teleportedPassenger.setDeltaMovement(momentum);
+            teleportedPassenger.setOldPosAndRot();
+            if (teleportedPassenger instanceof ServerPlayer sp) {
                 sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(sp));
             }
         }
 
-        if (entity instanceof ServerPlayer sp) {
+        if (teleported instanceof ServerPlayer sp) {
             sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(sp));
         }
     }
 
     private static boolean isEntityOnFrontSide(Vec3 entityPos, List<BlockPos> portalBlocks,
                                                   net.minecraft.core.Direction facing,
-                                                  net.minecraft.core.Direction.Axis axis) {
+                                                  net.minecraft.core.Direction.Axis axis,
+                                                  Vec3 velocity) {
+        double depthVelocity;
+        if (axis == net.minecraft.core.Direction.Axis.X) {
+            depthVelocity = velocity.z;
+        } else {
+            depthVelocity = velocity.x;
+        }
+        int facingSign = facing.getAxisDirection() == net.minecraft.core.Direction.AxisDirection.POSITIVE ? 1 : -1;
+        if (Math.abs(depthVelocity) > 1e-6) {
+            return (depthVelocity * facingSign) < 0;
+        }
         double portalCoord;
         double entityCoord;
         if (axis == net.minecraft.core.Direction.Axis.X) {
@@ -199,7 +230,6 @@ public class ModNetwork {
             entityCoord = entityPos.x;
         }
         double diff = entityCoord - portalCoord;
-        int facingSign = facing.getAxisDirection() == net.minecraft.core.Direction.AxisDirection.POSITIVE ? 1 : -1;
         return (diff * facingSign) > 0;
     }
 
@@ -243,8 +273,8 @@ public class ModNetwork {
         double rad = Math.toRadians(yawOffset);
         double cos = Math.cos(rad);
         double sin = Math.sin(rad);
-        double x = momentum.x * cos + momentum.z * sin;
-        double z = -momentum.x * sin + momentum.z * cos;
+        double x = momentum.x * cos - momentum.z * sin;
+        double z = momentum.x * sin + momentum.z * cos;
         return new Vec3(x, momentum.y, z);
     }
 
@@ -278,5 +308,21 @@ public class ModNetwork {
             }
         }
         return net.minecraft.core.Direction.Axis.X;
+    }
+
+    private static Vec3 alignMomentumToRail(ServerLevel level, BlockPos pos,
+                                             Vec3 momentum, net.minecraft.core.Direction exitDir) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock)) {
+            state = level.getBlockState(pos.below());
+            if (!(state.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock)) {
+                return momentum;
+            }
+        }
+        double speed = momentum.horizontalDistance();
+        if (speed < 0.01) speed = 0.1;
+        double mx = exitDir.getStepX() * speed;
+        double mz = exitDir.getStepZ() * speed;
+        return new Vec3(mx, momentum.y, mz);
     }
 }
