@@ -3,6 +3,7 @@ package com.haohao.link_portals.world;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -52,11 +53,11 @@ public class PortalNetworkSavedData extends SavedData {
         });
     }
 
-    public void addPortal(UUID portalId, ResourceKey<Level> dimension, String networkName, String portalName, Set<BlockPos> portalBlockPositions) {
+    public void addPortal(UUID portalId, ResourceKey<Level> dimension, String networkName, String portalName, Direction facing, Set<BlockPos> portalBlockPositions) {
         BlockPos spawnPos = portalBlockPositions.stream()
                 .min((a, b) -> Integer.compare(a.getY(), b.getY()))
                 .orElseThrow();
-        portalInfoMap.put(portalId, new PortalInfo(portalId, dimension, spawnPos, networkName, portalName));
+        portalInfoMap.put(portalId, new PortalInfo(portalId, dimension, spawnPos, networkName, portalName, facing));
         portalBlockPositions.forEach(pos -> portalBlockMap.put(pos, portalId));
         setDirty();
     }
@@ -97,13 +98,17 @@ public class PortalNetworkSavedData extends SavedData {
         return info != null ? info.spawnPos() : null;
     }
 
-    public record PortalInfo(UUID id, ResourceKey<Level> dimension, BlockPos spawnPos, String networkName, String portalName) {
+    public record PortalInfo(UUID id, ResourceKey<Level> dimension, BlockPos spawnPos, String networkName, String portalName, Direction facing) {
         public static final Codec<PortalInfo> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.STRING.xmap(UUID::fromString, UUID::toString).fieldOf("id").forGetter(PortalInfo::id),
                 Level.RESOURCE_KEY_CODEC.fieldOf("dimension").forGetter(PortalInfo::dimension),
                 BlockPos.CODEC.fieldOf("spawnPos").forGetter(PortalInfo::spawnPos),
                 Codec.STRING.fieldOf("networkName").forGetter(PortalInfo::networkName),
-                Codec.STRING.optionalFieldOf("portalName", "").forGetter(PortalInfo::portalName)
+                Codec.STRING.optionalFieldOf("portalName", "").forGetter(PortalInfo::portalName),
+                Codec.INT.optionalFieldOf("facing", 0).xmap(
+                        idx -> Direction.from2DDataValue(idx),
+                        dir -> dir.get2DDataValue()
+                ).forGetter(PortalInfo::facing)
         ).apply(i, PortalInfo::new));
     }
 }

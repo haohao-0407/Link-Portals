@@ -38,14 +38,30 @@ public class PortalActivatorItem extends Item {
                 LinkPortals.LOGGER.info("Frame detection result: {}", frame.isPresent() ? "FOUND" : "NOT FOUND");
                 if (frame.isPresent()) {
                     PortalActivationHelper.FrameResult f = frame.get();
-                    LinkPortals.LOGGER.info("Sending OpenNamingScreenPayload to player");
+                    Direction facing = computeFacing(player, f);
+                    LinkPortals.LOGGER.info("Sending OpenNamingScreenPayload to player, facing={}", facing);
                     PacketDistributor.sendToPlayer(player, new OpenNamingScreenPayload(
-                            f.axis(), f.minCorner(), f.width(), f.height()));
+                            f.axis(), f.minCorner(), f.width(), f.height(), facing));
                 }
             }
             return InteractionResult.SUCCESS;
         }
 
         return InteractionResult.PASS;
+    }
+
+    private Direction computeFacing(ServerPlayer player, PortalActivationHelper.FrameResult frame) {
+        Direction right = frame.axis() == Direction.Axis.X ? Direction.EAST : Direction.SOUTH;
+        BlockPos center = frame.minCorner().relative(right, frame.width() / 2 + 1).above(frame.height() / 2 + 1);
+        double playerCoord, portalCoord;
+        if (frame.axis() == Direction.Axis.X) {
+            playerCoord = player.getZ();
+            portalCoord = center.getZ() + 0.5;
+            return playerCoord < portalCoord ? Direction.NORTH : Direction.SOUTH;
+        } else {
+            playerCoord = player.getX();
+            portalCoord = center.getX() + 0.5;
+            return playerCoord < portalCoord ? Direction.WEST : Direction.EAST;
+        }
     }
 }

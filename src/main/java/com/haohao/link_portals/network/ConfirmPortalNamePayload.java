@@ -8,7 +8,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
-public record ConfirmPortalNamePayload(String networkName, String portalName, Direction.Axis axis, BlockPos minCorner, int width, int height)
+public record ConfirmPortalNamePayload(String networkName, String portalName, Direction.Axis axis, BlockPos minCorner, int width, int height, Direction facing)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<ConfirmPortalNamePayload> TYPE =
@@ -28,6 +28,8 @@ public record ConfirmPortalNamePayload(String networkName, String portalName, Di
                     ConfirmPortalNamePayload::width,
                     ByteBufCodecs.INT,
                     ConfirmPortalNamePayload::height,
+                    ByteBufCodecs.INT.map(Direction::from2DDataValue, Direction::get2DDataValue),
+                    ConfirmPortalNamePayload::facing,
                     ConfirmPortalNamePayload::new
             );
 

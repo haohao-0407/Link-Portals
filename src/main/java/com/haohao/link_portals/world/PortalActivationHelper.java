@@ -129,7 +129,7 @@ public class PortalActivationHelper {
         return state.is(ModBlocks.PORTAL_FRAME) || state.is(net.minecraft.world.level.block.Blocks.CRYING_OBSIDIAN);
     }
 
-    public static void fillPortal(ServerLevel level, FrameResult frame, UUID portalId, String networkName, String portalName) {
+    public static void fillPortal(ServerLevel level, FrameResult frame, UUID portalId, String networkName, String portalName, Direction facing) {
         Direction right = frame.axis() == Direction.Axis.X ? Direction.EAST : Direction.SOUTH;
         Set<BlockPos> portalPositions = new HashSet<>();
 
@@ -145,6 +145,6 @@ public class PortalActivationHelper {
 
         PortalNetworkSavedData data = level.getServer().overworld()
                 .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
-        data.addPortal(portalId, level.dimension(), networkName, portalName, portalPositions);
+        data.addPortal(portalId, level.dimension(), networkName, portalName, facing, portalPositions);
     }
 }

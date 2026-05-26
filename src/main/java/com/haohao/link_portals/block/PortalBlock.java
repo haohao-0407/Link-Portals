@@ -24,6 +24,8 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
+
+import java.util.ArrayList;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -35,7 +37,6 @@ import java.util.Map;
 public class PortalBlock extends Block {
     public static final EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
     private static final Map<Direction.Axis, VoxelShape> SHAPES = Shapes.rotateHorizontalAxis(Block.column(4.0, 16.0, 0.0, 16.0));
-    private static final int COOLDOWN_TICKS = 60;
 
     public PortalBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -68,9 +69,14 @@ public class PortalBlock extends Block {
         if (level.isClientSide()) return;
         if (entity.getVehicle() != null) return;
 
-        if (entity.getPersistentData().contains("link_portals_cooldown")) {
-            long cooldown = entity.getPersistentData().getLong("link_portals_cooldown").orElse(0L);
-            if (level.getGameTime() < cooldown) return;
+        long currentTick = level.getGameTime();
+        long lastTick = entity.getPersistentData().getLong("link_portals_last_tick").orElse(-2L);
+        boolean wasInPortal = currentTick - lastTick <= 1;
+        entity.getPersistentData().putLong("link_portals_last_tick", currentTick);
+
+        if (entity.getPersistentData().contains("link_portals_teleported")) {
+            if (wasInPortal) return;
+            entity.getPersistentData().remove("link_portals_teleported");
         }
 
         PortalNetworkSavedData data = level.getServer().overworld()
@@ -81,9 +87,10 @@ public class PortalBlock extends Block {
         List<PortalInfo> networkPortals = data.getNetworkPortals(current.networkName(), current.id());
         if (networkPortals.isEmpty()) return;
 
-        entity.getPersistentData().putLong("link_portals_cooldown", level.getGameTime() + COOLDOWN_TICKS);
+        entity.getPersistentData().putBoolean("link_portals_teleported", true);
         for (Entity passenger : entity.getPassengers()) {
-            passenger.getPersistentData().putLong("link_portals_cooldown", level.getGameTime() + COOLDOWN_TICKS);
+            passenger.getPersistentData().putBoolean("link_portals_teleported", true);
+            passenger.getPersistentData().putLong("link_portals_last_tick", currentTick);
         }
 
         if (networkPortals.size() == 1) {

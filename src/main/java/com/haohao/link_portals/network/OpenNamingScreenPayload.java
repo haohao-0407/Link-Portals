@@ -8,7 +8,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
-public record OpenNamingScreenPayload(Direction.Axis axis, BlockPos minCorner, int width, int height)
+public record OpenNamingScreenPayload(Direction.Axis axis, BlockPos minCorner, int width, int height, Direction facing)
         implements CustomPacketPayload {
 
     public static final CustomPacketPayload.Type<OpenNamingScreenPayload> TYPE =
@@ -24,6 +24,8 @@ public record OpenNamingScreenPayload(Direction.Axis axis, BlockPos minCorner, i
                     OpenNamingScreenPayload::width,
                     ByteBufCodecs.INT,
                     OpenNamingScreenPayload::height,
+                    ByteBufCodecs.INT.map(Direction::from2DDataValue, Direction::get2DDataValue),
+                    OpenNamingScreenPayload::facing,
                     OpenNamingScreenPayload::new
             );
 

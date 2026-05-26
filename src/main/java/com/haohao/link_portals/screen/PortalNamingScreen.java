@@ -45,7 +45,7 @@ public class PortalNamingScreen extends Screen {
                     if (network.isEmpty()) network = "default";
                     String name = this.portalNameField.getValue().trim();
                     ClientPacketDistributor.sendToServer(new ConfirmPortalNamePayload(
-                            network, name, payload.axis(), payload.minCorner(), payload.width(), payload.height()));
+                            network, name, payload.axis(), payload.minCorner(), payload.width(), payload.height(), payload.facing()));
                     this.onClose();
                 })
                 .pos(centerX - 105, startY + 60)

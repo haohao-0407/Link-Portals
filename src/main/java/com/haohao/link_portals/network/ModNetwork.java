@@ -6,12 +6,10 @@ import com.haohao.link_portals.world.PortalNetworkSavedData.PortalInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Relative;
 import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 import java.util.List;
@@ -65,7 +63,7 @@ public class ModNetwork {
         String portalName = payload.portalName();
         if (portalName == null) portalName = "";
 
-        PortalActivationHelper.fillPortal(level, frame, UUID.randomUUID(), networkName, portalName);
+        PortalActivationHelper.fillPortal(level, frame, UUID.randomUUID(), networkName, portalName, payload.facing());
     }
 
     private static boolean isFrameBlock(net.minecraft.world.level.block.state.BlockState state) {
@@ -100,26 +98,11 @@ public class ModNetwork {
         PortalNetworkSavedData data = currentLevel.getServer().overworld()
                 .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
 
-        PortalInfo target = data.getPortalInfo(payload.targetPortalId());
-        if (target == null) return;
+        PortalInfo source = data.getPortalInfo(payload.sourcePortalId());
+        if (source == null) return;
 
-        ServerLevel targetLevel = currentLevel.getServer().getLevel(target.dimension());
-        if (targetLevel == null) return;
-
-        BlockPos targetPos = target.spawnPos();
-        Vec3 targetVec = new Vec3(targetPos.getX() + 0.5, targetPos.getY(), targetPos.getZ() + 0.5);
-
-        if (currentLevel.dimension() == target.dimension()) {
-            player.teleportTo(targetLevel, targetVec.x, targetVec.y, targetVec.z,
-                    Relative.union(Relative.DELTA, Relative.ROTATION), player.getYRot(), player.getXRot(), true);
-        } else {
-            TeleportTransition transition = new TeleportTransition(
-                    targetLevel, targetVec, Vec3.ZERO, player.getYRot(), player.getXRot(),
-                    Relative.union(Relative.DELTA, Relative.ROTATION),
-                    TeleportTransition.DO_NOTHING
-            );
-            player.teleport(transition);
-        }
+        net.minecraft.core.Direction.Axis sourceAxis = getPortalAxis(currentLevel, source.spawnPos());
+        teleportEntity(player, currentLevel, payload.sourcePortalId(), payload.targetPortalId(), sourceAxis);
     }
 
     public static void teleportEntity(net.minecraft.world.entity.Entity entity, ServerLevel currentLevel,
@@ -128,8 +111,9 @@ public class ModNetwork {
         PortalNetworkSavedData data = currentLevel.getServer().overworld()
                 .getDataStorage().computeIfAbsent(PortalNetworkSavedData.TYPE);
 
+        PortalInfo source = data.getPortalInfo(sourcePortalId);
         PortalInfo target = data.getPortalInfo(targetPortalId);
-        if (target == null) return;
+        if (source == null || target == null) return;
 
         ServerLevel targetLevel = currentLevel.getServer().getLevel(target.dimension());
         if (targetLevel == null) return;
@@ -139,6 +123,8 @@ public class ModNetwork {
         if (sourceBlocks.isEmpty() || destBlocks.isEmpty()) return;
 
         net.minecraft.core.Direction.Axis destAxis = getPortalAxis(targetLevel, target.spawnPos());
+        net.minecraft.core.Direction sourceFacing = source.facing();
+        net.minecraft.core.Direction destFacing = target.facing();
 
         int[] srcBounds = getPortalBounds(sourceBlocks, sourceAxis);
         int[] dstBounds = getPortalBounds(destBlocks, destAxis);
@@ -157,14 +143,14 @@ public class ModNetwork {
         double destH = dstBounds[0] + ratioH * dstWidth;
         double destV = dstBounds[2] + ratioV * dstHeight;
 
-        Vec3 targetVec = buildTargetVec(destH, destV, destAxis, destBlocks);
+        boolean enteredFromFront = isEntityOnFrontSide(entityPos, sourceBlocks, sourceFacing, sourceAxis);
+        net.minecraft.core.Direction exitDirection = enteredFromFront ? destFacing : destFacing.getOpposite();
 
-        Vec3 momentum = entity.getDeltaMovement();
-        float yRot = entity.getYRot();
-        if (sourceAxis != destAxis) {
-            momentum = new Vec3(-momentum.z, momentum.y, momentum.x);
-            yRot += 90.0f;
-        }
+        Vec3 targetVec = buildTargetVecWithOffset(destH, destV, destAxis, destBlocks, exitDirection);
+
+        float yawOffset = computeYawOffset(sourceFacing, destFacing, enteredFromFront);
+        float yRot = entity.getYRot() + yawOffset;
+        Vec3 momentum = rotateMomentum(entity.getDeltaMovement(), yawOffset);
 
         TeleportTransition transition = new TeleportTransition(
                 targetLevel, targetVec, momentum, yRot, entity.getXRot(),
@@ -182,7 +168,7 @@ public class ModNetwork {
 
         for (net.minecraft.world.entity.Entity passenger : passengers) {
             TeleportTransition passengerTransition = new TeleportTransition(
-                    targetLevel, targetVec, momentum, passenger.getYRot() + (sourceAxis != destAxis ? 90.0f : 0.0f),
+                    targetLevel, targetVec, momentum, passenger.getYRot() + yawOffset,
                     passenger.getXRot(),
                     java.util.Set.of(),
                     TeleportTransition.DO_NOTHING
@@ -200,19 +186,70 @@ public class ModNetwork {
         }
     }
 
-    private static double getHorizontalCoord(Vec3 pos, net.minecraft.core.Direction.Axis axis) {
-        return axis == net.minecraft.core.Direction.Axis.X ? pos.x : pos.z;
+    private static boolean isEntityOnFrontSide(Vec3 entityPos, List<BlockPos> portalBlocks,
+                                                  net.minecraft.core.Direction facing,
+                                                  net.minecraft.core.Direction.Axis axis) {
+        double portalCoord;
+        double entityCoord;
+        if (axis == net.minecraft.core.Direction.Axis.X) {
+            portalCoord = portalBlocks.getFirst().getZ() + 0.5;
+            entityCoord = entityPos.z;
+        } else {
+            portalCoord = portalBlocks.getFirst().getX() + 0.5;
+            entityCoord = entityPos.x;
+        }
+        double diff = entityCoord - portalCoord;
+        int facingSign = facing.getAxisDirection() == net.minecraft.core.Direction.AxisDirection.POSITIVE ? 1 : -1;
+        return (diff * facingSign) > 0;
     }
 
-    private static Vec3 buildTargetVec(double h, double v, net.minecraft.core.Direction.Axis axis,
-                                         List<BlockPos> destBlocks) {
+    private static Vec3 buildTargetVecWithOffset(double h, double v, net.minecraft.core.Direction.Axis axis,
+                                                   List<BlockPos> destBlocks, net.minecraft.core.Direction exitDir) {
+        double offset = 0.5;
         if (axis == net.minecraft.core.Direction.Axis.X) {
             int fixedZ = destBlocks.getFirst().getZ();
-            return new Vec3(h, v, fixedZ + 0.5);
+            double z = fixedZ + 0.5 + exitDir.getStepZ() * offset;
+            return new Vec3(h, v, z);
         } else {
             int fixedX = destBlocks.getFirst().getX();
-            return new Vec3(fixedX + 0.5, v, h);
+            double x = fixedX + 0.5 + exitDir.getStepX() * offset;
+            return new Vec3(x, v, h);
         }
+    }
+
+    private static float computeYawOffset(net.minecraft.core.Direction sourceFacing,
+                                            net.minecraft.core.Direction destFacing,
+                                            boolean enteredFromFront) {
+        net.minecraft.core.Direction entryDir = enteredFromFront
+                ? sourceFacing.getOpposite()
+                : sourceFacing;
+        net.minecraft.core.Direction exitDir = enteredFromFront
+                ? destFacing
+                : destFacing.getOpposite();
+        return directionToYaw(exitDir) - directionToYaw(entryDir);
+    }
+
+    private static float directionToYaw(net.minecraft.core.Direction dir) {
+        return switch (dir) {
+            case SOUTH -> 0f;
+            case WEST -> 90f;
+            case NORTH -> 180f;
+            case EAST -> -90f;
+            default -> 0f;
+        };
+    }
+
+    private static Vec3 rotateMomentum(Vec3 momentum, float yawOffset) {
+        double rad = Math.toRadians(yawOffset);
+        double cos = Math.cos(rad);
+        double sin = Math.sin(rad);
+        double x = momentum.x * cos + momentum.z * sin;
+        double z = -momentum.x * sin + momentum.z * cos;
+        return new Vec3(x, momentum.y, z);
+    }
+
+    private static double getHorizontalCoord(Vec3 pos, net.minecraft.core.Direction.Axis axis) {
+        return axis == net.minecraft.core.Direction.Axis.X ? pos.x : pos.z;
     }
 
     private static int[] getPortalBounds(List<BlockPos> blocks, net.minecraft.core.Direction.Axis axis) {
