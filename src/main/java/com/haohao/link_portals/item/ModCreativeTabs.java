@@ -17,7 +17,7 @@ public class ModCreativeTabs {
                     .title(Component.translatable("itemGroup.link_portals"))
                     .icon(() -> new ItemStack(ModItems.PORTAL_ACTIVATOR.get()))
                     .displayItems((parameters, output) -> {
-                        output.accept(ModItems.PORTAL_FRAME.get());
+
                         output.accept(ModItems.PORTAL_ACTIVATOR.get());
                     })
                     .build());
